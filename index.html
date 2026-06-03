@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Darla — Product Lookup</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+:root{
+  --bg:#F7F5F2;--surface:#FFFFFF;--surface2:#F2EFE9;
+  --dark:#18181B;--mid:#71717A;--light:#A1A1AA;--border:#E4E0D8;
+  --accent:#C55A3A;--accent-light:#FBF0EC;--accent-mid:#E8845A;
+  --staff:#2563EB;--staff-light:#EFF6FF;
+  --r:12px;--r-sm:8px;
+  --shadow:0 1px 3px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.06);
+  --shadow-lg:0 8px 40px rgba(0,0,0,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--dark);font-family:'Manrope',sans-serif;font-weight:400;min-height:100vh;-webkit-font-smoothing:antialiased;overscroll-behavior:none}
+
+/* ── Header ── */
+header{background:var(--dark);padding:env(safe-area-inset-top,0) 20px 0;height:calc(60px + env(safe-area-inset-top,0));display:flex;align-items:flex-end;justify-content:space-between;padding-bottom:14px;position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-mark{width:28px;height:28px;flex-shrink:0}
+.logo-text{font-size:15px;font-weight:700;letter-spacing:.14em;color:#fff;text-transform:uppercase}
+.logo-sub{font-size:10px;font-weight:400;color:#A1A1AA;letter-spacing:.08em;display:block;margin-top:1px}
+.staff-btn{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:#fff;font-family:'Manrope',sans-serif;font-size:12px;font-weight:500;padding:7px 14px;border-radius:99px;cursor:pointer;transition:all .2s}
+.staff-btn:hover,.staff-btn.active{background:var(--staff);border-color:var(--staff)}
+.staff-btn svg{width:13px;height:13px;flex-shrink:0}
+
+/* ── Container ── */
+.container{max-width:640px;margin:0 auto;padding:24px 16px calc(40px + env(safe-area-inset-bottom,0))}
+
+/* ── Categories ── */
+.section-title{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--light);margin-bottom:14px;padding-left:2px}
+.cat-scroll{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.cat-chip{display:flex;flex-direction:column;align-items:center;gap:8px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r);padding:14px 16px 12px;cursor:pointer;transition:all .18s;}
+.cat-chip:hover{border-color:var(--accent-mid);box-shadow:var(--shadow)}
+.cat-chip.active{background:var(--dark);border-color:var(--dark)}
+.cat-chip.active .cat-icon-wrap{background:rgba(197,90,58,.25)}
+.cat-chip.active .cat-icon-wrap svg{color:#E8845A}
+.cat-chip.active .cat-label{color:#fff}
+.cat-icon-wrap{width:40px;height:40px;border-radius:10px;background:var(--accent-light);display:flex;align-items:center;justify-content:center}
+.cat-icon-wrap svg{width:20px;height:20px;color:var(--accent)}
+.cat-label{font-size:11px;font-weight:600;color:var(--mid);white-space:nowrap;text-align:center}
+
+/* ── Pickers ── */
+.pickers{margin-top:24px;display:none;flex-direction:column;gap:10px}
+.pickers.visible{display:flex}
+
+.picker-field{display:flex;align-items:center;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:14px 16px;cursor:pointer;transition:border-color .15s;gap:12px;min-height:54px}
+.picker-field:hover{border-color:var(--accent-mid)}
+.picker-field.filled{border-color:var(--accent)}
+.picker-field.disabled{opacity:.45;cursor:not-allowed;pointer-events:none}
+.picker-field-icon{width:18px;height:18px;flex-shrink:0;color:var(--mid)}
+.picker-field-content{flex:1;min-width:0}
+.picker-field-label{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--light)}
+.picker-field-value{font-size:15px;font-weight:500;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.picker-field-value.placeholder{color:var(--light);font-weight:400;font-size:14px}
+.picker-chevron{width:16px;height:16px;flex-shrink:0;color:var(--light)}
+
+/* ── Search bar ── */
+.search-wrap{position:relative;margin-bottom:2px}
+.search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:var(--light);pointer-events:none}
+.search-bar{width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:13px 14px 13px 40px;font-family:'Manrope',sans-serif;font-size:15px;font-weight:400;color:var(--dark);transition:border-color .15s;-webkit-appearance:none}
+.search-bar:focus{outline:none;border-color:var(--accent)}
+.search-bar::placeholder{color:var(--light)}
+.search-clear{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:20px;height:20px;background:var(--light);border-radius:50%;border:none;cursor:pointer;display:none;align-items:center;justify-content:center;padding:0}
+.search-clear.visible{display:flex}
+.search-clear svg{width:10px;height:10px;color:#fff}
+
+/* ── Design list ── */
+.design-section{margin-top:16px;display:none}
+.design-section.visible{display:block}
+.design-section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.design-count{font-size:12px;font-weight:500;color:var(--mid)}
+.design-count span{font-weight:700;color:var(--dark)}
+
+/* Table */
+.design-table{border-radius:var(--r);overflow:hidden;border:1px solid var(--border);background:var(--surface)}
+.dt-head{display:grid;grid-template-columns:1fr auto auto;background:var(--surface2);border-bottom:1px solid var(--border)}
+.dt-head-cell{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--light);padding:9px 14px}
+.dt-head-cell:not(:first-child){text-align:right;border-left:1px solid var(--border)}
+.dt-row{display:grid;grid-template-columns:1fr auto auto;border-top:1px solid var(--border);cursor:pointer;transition:background .1s;background:var(--surface)}
+.dt-row:first-of-type{border-top:none}
+.dt-row:hover,.dt-row:active{background:var(--accent-light)}
+.dt-row.active-item{background:var(--accent-light);box-shadow:inset 3px 0 0 var(--accent)}
+.dt-cell{padding:12px 14px;display:flex;flex-direction:column;justify-content:center;min-width:0}
+.dt-cell:not(:first-child){border-left:1px solid var(--border);align-items:flex-end;justify-content:center}
+.dt-design{font-size:13px;font-weight:600;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dt-sno{font-size:11px;color:var(--light);margin-top:2px;font-weight:400;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dt-shade{font-size:10px;color:var(--mid);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dt-mrp{font-size:15px;font-weight:700;color:var(--accent);letter-spacing:-.01em;white-space:nowrap}
+.dt-unit{font-size:10px;color:var(--mid);font-weight:400;margin-top:1px}
+.dt-width{font-size:13px;font-weight:600;color:var(--dark);white-space:nowrap}
+.dt-width-na{font-size:12px;color:var(--light)}
+.design-empty{padding:32px;text-align:center;background:var(--surface);color:var(--light);font-size:13px;font-weight:500}
+
+/* ── Loading ── */
+.loader{display:none;justify-content:center;align-items:center;gap:6px;padding:32px 0}
+.loader.visible{display:flex}
+.loader-dot{width:7px;height:7px;background:var(--accent);border-radius:50%;animation:pulse .9s ease infinite}
+.loader-dot:nth-child(2){animation-delay:.15s}
+.loader-dot:nth-child(3){animation-delay:.3s}
+@keyframes pulse{0%,100%{opacity:.2;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+
+/* ── Product card ── */
+.product-card{border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow-lg);margin-top:16px;display:none;animation:slideUp .25s ease}
+.product-card.visible{display:block}
+@keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+.card-top{background:var(--dark);padding:20px 20px 18px;position:relative;overflow:hidden}
+.card-top::before{content:'';position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:rgba(197,90,58,.1)}
+.card-brand{display:inline-flex;align-items:center;background:rgba(255,255,255,.1);color:rgba(255,255,255,.65);font-size:10px;font-weight:600;letter-spacing:.1em;padding:4px 10px;border-radius:99px;text-transform:uppercase;margin-bottom:10px}
+.card-design{font-size:26px;font-weight:700;color:#fff;line-height:1.15;letter-spacing:-.01em}
+.card-collection{font-size:12px;color:rgba(255,255,255,.4);margin-top:5px}
+.card-width-badge{display:inline-flex;align-items:center;gap:5px;margin-top:10px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.85);font-size:13px;font-weight:600;padding:6px 12px;border-radius:99px;letter-spacing:.02em}
+.card-close{position:absolute;top:16px;right:16px;width:32px;height:32px;background:rgba(255,255,255,.1);border:none;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;transition:background .2s}
+.card-close:hover{background:rgba(255,255,255,.2)}
+.card-close svg{width:14px;height:14px}
+
+.card-prices{background:var(--surface);padding:20px}
+.price-main{display:flex;align-items:center;justify-content:space-between;padding:16px;background:var(--accent-light);border-radius:var(--r-sm);border:1.5px solid rgba(197,90,58,.2);margin-bottom:10px}
+.price-main-label{font-size:10px;font-weight:600;color:var(--accent);letter-spacing:.08em;text-transform:uppercase;margin-bottom:4px}
+.price-main-value{font-size:36px;font-weight:700;color:var(--accent);letter-spacing:-.02em;line-height:1}
+.price-main-unit{font-size:11px;color:var(--accent-mid);font-weight:500;margin-top:4px}
+.price-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.price-tile{padding:12px 14px;background:var(--surface2);border-radius:var(--r-sm);border:1px solid var(--border)}
+.price-tile-label{font-size:10px;font-weight:600;color:var(--light);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;display:flex;align-items:center;gap:4px}
+.price-tile-value{font-size:22px;font-weight:700;color:var(--dark);letter-spacing:-.01em;line-height:1}
+.price-tile-unit{font-size:11px;color:var(--mid);margin-top:2px}
+.staff-only{display:none}
+.staff-mode .staff-only{display:block}
+.staff-tile{border-color:rgba(37,99,235,.2)!important;background:var(--staff-light)!important}
+.staff-tile .price-tile-label{color:var(--staff)!important}
+.staff-tile .price-tile-value{color:var(--staff)!important}
+.staff-tag{font-size:9px;font-weight:700;background:var(--staff);color:#fff;padding:1px 5px;border-radius:3px;letter-spacing:.04em}
+
+.mech-section{background:var(--surface);padding:0 20px 20px}
+.mech-header{font-size:11px;font-weight:600;color:var(--mid);letter-spacing:.08em;text-transform:uppercase;padding-bottom:10px;display:flex;align-items:center;gap:6px}
+.mech-header svg{width:13px;height:13px}
+.mech-list{border-radius:var(--r-sm);overflow:hidden;border:1px solid var(--border)}
+.mech-row{display:flex;align-items:center;justify-content:space-between;padding:13px 15px;background:var(--surface)}
+.mech-row+.mech-row{border-top:1px solid var(--border)}
+.mech-name{font-size:13px;font-weight:500;color:var(--dark)}
+.mech-price{font-size:18px;font-weight:700;color:var(--accent);letter-spacing:-.01em}
+.mech-price-unit{font-size:11px;color:var(--mid);margin-left:2px}
+
+.card-chips{background:var(--surface);padding:0 20px 20px}
+.chips-divider{height:1px;background:var(--border);margin-bottom:14px}
+.chips-wrap{display:flex;flex-wrap:wrap;gap:7px}
+.chip{display:flex;align-items:center;gap:5px;background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:5px 12px;font-size:12px;color:var(--mid)}
+.chip svg{width:11px;height:11px;flex-shrink:0}
+.chip strong{color:var(--dark);font-weight:600}
+
+/* ── Picker Sheet ── */
+.sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(3px);z-index:200;display:none;align-items:flex-end;justify-content:center}
+.sheet-overlay.open{display:flex}
+.sheet{background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:640px;max-height:85vh;display:flex;flex-direction:column;animation:sheetUp .3s cubic-bezier(.32,.72,0,1)}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sheet-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:12px auto 0;flex-shrink:0}
+.sheet-header{padding:16px 20px 12px;flex-shrink:0}
+.sheet-title{font-size:17px;font-weight:700;color:var(--dark);margin-bottom:12px;letter-spacing:-.01em}
+.sheet-search{position:relative}
+.sheet-search-icon{position:absolute;left:13px;top:50%;transform:translateY(-50%);width:15px;height:15px;color:var(--light);pointer-events:none}
+.sheet-input{width:100%;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--r-sm);padding:12px 12px 12px 38px;font-family:'Manrope',sans-serif;font-size:15px;color:var(--dark);-webkit-appearance:none}
+.sheet-input:focus{outline:none;border-color:var(--accent);background:var(--surface)}
+.sheet-list{overflow-y:auto;flex:1;-webkit-overflow-scrolling:touch}
+.sheet-item{display:flex;align-items:center;padding:15px 20px;border-top:1px solid var(--border);cursor:pointer;gap:12px;transition:background .1s}
+.sheet-item:hover,.sheet-item:active{background:var(--accent-light)}
+.sheet-item.selected{background:var(--accent-light)}
+.sheet-item-check{width:20px;height:20px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:0;transition:opacity .15s}
+.sheet-item.selected .sheet-item-check{opacity:1}
+.sheet-item-check svg{width:10px;height:10px;color:#fff}
+.sheet-item-text{flex:1;font-size:15px;font-weight:500;color:var(--dark)}
+.sheet-item-sub{font-size:12px;color:var(--light);margin-top:1px;font-weight:400}
+.sheet-empty{padding:32px;text-align:center;color:var(--light);font-size:13px;font-weight:500}
+.sheet-footer{padding:16px 20px calc(16px + env(safe-area-inset-bottom,0));border-top:1px solid var(--border);flex-shrink:0}
+.sheet-cancel{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:14px;font-family:'Manrope',sans-serif;font-size:15px;font-weight:600;color:var(--mid);cursor:pointer;transition:background .2s}
+.sheet-cancel:hover{background:var(--border)}
+
+/* ── PIN Modal ── */
+.pin-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(3px);z-index:300;display:none;align-items:flex-end;justify-content:center}
+.pin-overlay.open{display:flex}
+.pin-sheet{background:var(--surface);border-radius:20px 20px 0 0;width:100%;max-width:420px;padding:8px 28px calc(28px + env(safe-area-inset-bottom,0));animation:sheetUp .3s cubic-bezier(.32,.72,0,1)}
+.pin-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 20px}
+.pin-icon{width:48px;height:48px;background:var(--surface2);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 14px}
+.pin-icon svg{width:22px;height:22px;color:var(--mid)}
+.pin-title{font-size:20px;font-weight:700;color:var(--dark);text-align:center;margin-bottom:5px;letter-spacing:-.01em}
+.pin-sub{font-size:13px;color:var(--mid);text-align:center;margin-bottom:22px}
+.pin-input{width:100%;text-align:center;font-size:28px;font-weight:700;letter-spacing:.3em;padding:16px;border:2px solid var(--border);border-radius:var(--r-sm);font-family:'Manrope',sans-serif;color:var(--dark);background:var(--surface2);margin-bottom:12px;transition:border-color .15s;-webkit-appearance:none}
+.pin-input:focus{outline:none;border-color:var(--accent);background:var(--surface)}
+.pin-submit{width:100%;background:var(--dark);color:#fff;border:none;border-radius:var(--r-sm);padding:16px;font-family:'Manrope',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:background .2s;margin-bottom:10px}
+.pin-submit:hover{background:var(--accent)}
+.pin-error{font-size:13px;color:#DC2626;text-align:center;display:none;font-weight:500;margin-bottom:10px}
+.pin-cancel{width:100%;background:transparent;border:1.5px solid var(--border);border-radius:var(--r-sm);padding:14px;font-family:'Manrope',sans-serif;font-size:14px;font-weight:600;color:var(--mid);cursor:pointer;transition:all .2s}
+.pin-logout{width:100%;background:transparent;color:#DC2626;border:1.5px solid #FCA5A5;border-radius:var(--r-sm);padding:14px;font-family:'Manrope',sans-serif;font-size:14px;font-weight:600;cursor:pointer;margin-top:10px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg class="logo-mark" viewBox="0 0 28 28" fill="none">
+      <rect width="28" height="28" rx="7" fill="#C55A3A"/>
+      <path d="M7 8h14M7 14h10M7 20h12" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <div><div class="logo-text">Darla</div><span class="logo-sub">Product Lookup</span></div>
+  </div>
+  <button class="staff-btn" onclick="openPin()" id="staffBtn">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+    <span id="staffLabel">Staff</span>
+  </button>
+</header>
+
+<div class="container">
+
+  <div class="section-title">Categories</div>
+  <div class="cat-scroll">
+    <div class="cat-chip" onclick="selectCat('fabric')" data-cat="fabric">
+      <div class="cat-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3C7 3 3 7 3 12s4 9 9 9 9-4 9-9-4-9-9-9z"/><path d="M3 12h18M12 3c-2.5 3-2.5 6 0 9s2.5 6 0 9"/></svg></div>
+      <span class="cat-label">Fabric</span>
+    </div>
+    <div class="cat-chip" onclick="selectCat('blinds')" data-cat="blinds">
+      <div class="cat-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="2" rx="1"/><rect x="3" y="8" width="18" height="2" rx="1"/><rect x="3" y="13" width="18" height="2" rx="1"/><rect x="3" y="18" width="18" height="2" rx="1"/></svg></div>
+      <span class="cat-label">Blinds</span>
+    </div>
+    <div class="cat-chip" onclick="selectCat('hangers')" data-cat="hangers">
+      <div class="cat-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 4a2 2 0 1 1 0 4l9 9H3l9-9a2 2 0 0 1 0-4z"/></svg></div>
+      <span class="cat-label">Store Hangers</span>
+    </div>
+    <div class="cat-chip" onclick="selectCat('beds')" data-cat="beds">
+      <div class="cat-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9v11M21 9v11M3 13h18M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2"/><rect x="7" y="7" width="4" height="4" rx="1"/><rect x="13" y="7" width="4" height="4" rx="1"/></svg></div>
+      <span class="cat-label">Mattress</span>
+    </div>
+    <div class="cat-chip" onclick="selectCat('rods')" data-cat="rods">
+      <div class="cat-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7h18"/><circle cx="3" cy="7" r="1.5" fill="currentColor"/><circle cx="21" cy="7" r="1.5" fill="currentColor"/><path d="M8 7v5M12 7v5M16 7v5"/></svg></div>
+      <span class="cat-label">Rods</span>
+    </div>
+    <div class="cat-chip" onclick="selectCat('wallpapers')" data-cat="wallpapers">
+      <div class="cat-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg></div>
+      <span class="cat-label">Wallpapers</span>
+    </div>
+    <div class="cat-chip" onclick="selectCat('motors')" data-cat="motors">
+      <div class="cat-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg></div>
+      <span class="cat-label">Motors</span>
+    </div>
+    <div class="cat-chip" onclick="selectCat('flooring')" data-cat="flooring">
+      <div class="cat-icon-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="13" width="8" height="8" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/><rect x="3" y="3" width="8" height="8" rx="1"/><rect x="13" y="3" width="8" height="8" rx="1"/></svg></div>
+      <span class="cat-label">Flooring</span>
+    </div>
+  </div>
+
+  <!-- Pickers -->
+  <div class="pickers" id="pickers">
+    <div class="picker-field disabled" id="brandField" onclick="openSheet('brand')">
+      <svg class="picker-field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <div class="picker-field-content">
+        <div class="picker-field-label">Brand</div>
+        <div class="picker-field-value placeholder" id="brandVal">Select a brand</div>
+      </div>
+      <svg class="picker-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="picker-field disabled" id="catalogField" onclick="openSheet('catalog')">
+      <svg class="picker-field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      <div class="picker-field-content">
+        <div class="picker-field-label">Collection</div>
+        <div class="picker-field-value placeholder" id="catalogVal">Select a collection</div>
+      </div>
+      <svg class="picker-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+    <div class="picker-field disabled" id="designField" onclick="openSheet('design')">
+      <svg class="picker-field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <div class="picker-field-content">
+        <div class="picker-field-label">Design / S.No</div>
+        <div class="picker-field-value placeholder" id="designVal">Select design or S.No</div>
+      </div>
+      <svg class="picker-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </div>
+  </div>
+
+  <!-- Search bar (shows after catalog selected) -->
+  <div id="searchSection" style="display:none;margin-top:16px">
+    <div class="search-wrap">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input class="search-bar" id="searchBar" type="search" placeholder="Search designs, codes..." oninput="onSearch()" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button class="search-clear" id="searchClear" onclick="clearSearch()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="loader" id="loader"><div class="loader-dot"></div><div class="loader-dot"></div><div class="loader-dot"></div></div>
+
+  <!-- Design list (shows all designs in selected catalog) -->
+  <div class="design-section" id="designSection">
+    <div class="design-section-header">
+      <div class="design-count"><span id="designCount">0</span> designs</div>
+    </div>
+    <div id="designList"></div>
+  </div>
+
+  <!-- Product detail card -->
+  <div class="product-card" id="productCard"></div>
+
+</div>
+
+<!-- Picker sheet (reused for brand + catalog) -->
+<div class="sheet-overlay" id="sheetOverlay" onclick="if(event.target===this)closeSheet()">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-header">
+      <div class="sheet-title" id="sheetTitle">Select</div>
+      <div class="sheet-search">
+        <svg class="sheet-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input class="sheet-input" id="sheetInput" type="search" placeholder="Type to search..." oninput="filterSheet()" autocomplete="off">
+      </div>
+    </div>
+    <div class="sheet-list" id="sheetList"></div>
+    <div class="sheet-footer">
+      <button class="sheet-cancel" onclick="closeSheet()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN sheet -->
+<div class="pin-overlay" id="pinOverlay" onclick="if(event.target===this)closePinModal()">
+  <div class="pin-sheet">
+    <div class="pin-handle"></div>
+    <div class="pin-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></div>
+    <div class="pin-title" id="pinTitle">Staff Access</div>
+    <div class="pin-sub" id="pinSub">Enter your PIN to view dealer rates</div>
+    <div id="pinForm">
+      <input class="pin-input" type="password" id="pinInput" maxlength="6" placeholder="• • • •" onkeydown="if(event.key==='Enter')submitPin()">
+      <div class="pin-error" id="pinError">Incorrect PIN — please try again</div>
+      <button class="pin-submit" onclick="submitPin()">Unlock</button>
+      <button class="pin-cancel" onclick="closePinModal()">Cancel</button>
+    </div>
+    <button class="pin-logout" id="pinLogout" onclick="doLogout()" style="display:none">Sign out of staff mode</button>
+  </div>
+</div>
+
+<script>
+const firebaseConfig={apiKey:"AIzaSyAGxcN3F9h_yyH7y70re8ovMK6nBPSDMdM",authDomain:"darla-supplier-pipeline.firebaseapp.com",databaseURL:"https://darla-supplier-pipeline-default-rtdb.asia-southeast1.firebasedatabase.app",projectId:"darla-supplier-pipeline",storageBucket:"darla-supplier-pipeline.firebasestorage.app",messagingSenderId:"562378853212",appId:"1:562378853212:web:f86bdbd31287e861704f99"};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database();
+
+const STAFF_PIN='1234';
+
+// ── State ──
+let currentCat=null,meta={},staff=false;
+let selectedBrand=null,selectedCatalog=null,selectedSno=null;
+let sheetMode=null,sheetOptions=[];
+let allDesigns=[]; // all items for current catalog
+
+// ── Category ──
+function selectCat(c){
+  currentCat=c;
+  document.querySelectorAll('.cat-chip').forEach(el=>el.classList.toggle('active',el.dataset.cat===c));
+  selectedBrand=null;selectedCatalog=null;selectedSno=null;
+  setPickerVal('brand',null);setPickerVal('catalog',null);
+  enablePicker('brand',false);enablePicker('catalog',true);
+  hideDesigns();hideCard();
+  document.getElementById('searchSection').style.display='none';
+  document.getElementById('pickers').classList.add('visible');
+  loadMeta(c);
+}
+
+async function loadMeta(c){
+  showLoad(true);
+  try{
+    const s=await db.ref(c+'/meta').once('value');
+    meta=s.val()||{};
+    enablePicker('brand',Object.keys(meta).length>0);
+  }catch(e){console.error(e);}
+  showLoad(false);
+}
+
+// ── Pickers ──
+function enablePicker(type,on){
+  const f=document.getElementById(type+'Field');
+  f.classList.toggle('disabled',!on);
+}
+
+const PICKER_PLACEHOLDERS={brand:'Select a brand',catalog:'Select a collection',design:'Select design or S.No'};
+function setPickerVal(type,val){
+  const el=document.getElementById(type+'Val');
+  if(!el) return;
+  if(val){el.textContent=val;el.classList.remove('placeholder');document.getElementById(type+'Field').classList.add('filled');}
+  else{el.textContent=PICKER_PLACEHOLDERS[type]||'Select';el.classList.add('placeholder');document.getElementById(type+'Field').classList.remove('filled');}
+}
+
+function sortDesigns(items){
+  // Sort numerically by S.No if possible, else alphabetically by design
+  return [...items].sort((a,b)=>{
+    const na=parseInt(a.sno), nb=parseInt(b.sno);
+    if(!isNaN(na)&&!isNaN(nb)) return na-nb;
+    const da=(a.design||a.sno).toLowerCase();
+    const db=(b.design||b.sno).toLowerCase();
+    return da<db?-1:da>db?1:0;
+  });
+}
+
+function openSheet(mode){
+  sheetMode=mode;
+  let opts=[];
+  let title='';
+  if(mode==='brand'){
+    title='Select Brand';
+    opts=Object.keys(meta).map(b=>({value:b,label:b}));
+  } else if(mode==='catalog'){
+    title='Select Collection';
+    opts=selectedBrand?Object.keys(meta[selectedBrand]||{}).map(c=>({value:c,label:c})):[];
+  } else if(mode==='design'){
+    title='Select Design / S.No';
+    const items=sortDesigns((meta[selectedBrand]?.[selectedCatalog])||[]);
+    opts=items.map(i=>{
+      // Show S.No + design name if they differ, else just show design
+      const label=i.design&&i.design!==i.sno?i.sno+' — '+i.design:i.sno;
+      const sub=i.sub_collection||null;
+      const price=i.preview_price?'₹'+fmt(i.preview_price):'';
+      return {value:i.sno, label, sub, price};
+    });
+  }
+  sheetOptions=opts;
+  document.getElementById('sheetTitle').textContent=title;
+  document.getElementById('sheetInput').value='';
+  renderSheetList(opts,mode==='brand'?selectedBrand:selectedCatalog);
+  document.getElementById('sheetOverlay').classList.add('open');
+  setTimeout(()=>document.getElementById('sheetInput').focus(),300);
+}
+
+function filterSheet(){
+  const q=document.getElementById('sheetInput').value.toLowerCase().trim();
+  const filtered=q?sheetOptions.filter(o=>o.label.toLowerCase().includes(q)):sheetOptions;
+  const current=sheetMode==='brand'?selectedBrand:selectedCatalog;
+  renderSheetList(filtered,sheetMode==='brand'?selectedBrand:selectedCatalog);
+}
+
+let _sheetFiltered=[];
+function renderSheetList(opts,current){
+  _sheetFiltered=opts;
+  const list=document.getElementById('sheetList');
+  if(!opts.length){list.innerHTML='<div class="sheet-empty">No results found</div>';return;}
+  list.innerHTML=opts.map((o,i)=>`
+    <div class="sheet-item${current===o.value?' selected':''}" onclick="_pickItem(${i})">
+      <div class="sheet-item-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <div style="flex:1;min-width:0">
+        <div class="sheet-item-text">${esc(o.label)}</div>
+        ${o.sub?`<div class="sheet-item-sub">${esc(o.sub)}</div>`:''}
+      </div>
+      ${o.price?`<div style="font-size:13px;font-weight:700;color:var(--accent);white-space:nowrap;margin-left:8px">${esc(o.price)}</div>`:''}
+    </div>`).join('');
+}
+function _pickItem(i){selectSheetItem(_sheetFiltered[i].value);}
+
+function selectSheetItem(val){
+  closeSheet();
+  if(sheetMode==='brand'){
+    selectedBrand=val;selectedCatalog=null;selectedSno=null;
+    setPickerVal('brand',val);setPickerVal('catalog',null);setPickerVal('design',null);
+    enablePicker('catalog',true);enablePicker('design',false);
+    hideDesigns();hideCard();
+    document.getElementById('searchSection').style.display='none';
+  } else if(sheetMode==='catalog'){
+    selectedCatalog=val;selectedSno=null;
+    setPickerVal('catalog',val);setPickerVal('design',null);
+    enablePicker('design',true);
+    hideCard();
+    loadDesigns();
+  } else if(sheetMode==='design'){
+    selectedSno=val;
+    // Find design label from meta
+    const items=meta[selectedBrand]?.[selectedCatalog]||[];
+    const item=items.find(i=>i.sno===val);
+    const label=item?(item.design&&item.design!==item.sno?item.sno+' — '+item.design:item.sno):val;
+    setPickerVal('design',label);
+    // Load full product and highlight in list
+    loadAndShowProduct(val);
+  }
+}
+
+function closeSheet(){document.getElementById('sheetOverlay').classList.remove('open');}
+
+// ── Design list ──
+async function loadDesigns(){
+  if(!selectedBrand||!selectedCatalog) return;
+  showLoad(true);
+  allDesigns=sortDesigns((meta[selectedBrand]?.[selectedCatalog])||[]);
+  document.getElementById('searchSection').style.display='block';
+  document.getElementById('searchBar').value='';
+  document.getElementById('searchClear').classList.remove('visible');
+  renderDesigns(allDesigns);
+  showLoad(false);
+}
+
+let _filteredDesigns=[];
+function renderDesigns(items){
+  _filteredDesigns=items;
+  const section=document.getElementById('designSection');
+  const list=document.getElementById('designList');
+  const count=document.getElementById('designCount');
+
+  if(!items||items.length===0){
+    section.classList.add('visible');
+    count.textContent='0';
+    list.innerHTML='<div class="design-empty">No designs found</div>';
+    return;
+  }
+
+  count.textContent=items.length;
+  const ul=items[0]?.price_unit==='per_sqft'?'/sq.ft':items[0]?.price_unit==='per_piece'?'/pc':'/m';
+
+  list.innerHTML=items.map((item,idx)=>{
+    const price=item.preview_price?`<div class="design-item-price">₹${fmt(item.preview_price)}<span class="design-item-unit">${ul}</span></div>`:'';
+    const sub=item.sub_collection?`<div class="design-item-sub">${esc(item.sub_collection)}</div>`:'';
+    const label=item.design&&item.design!==item.sno?`${esc(item.design)}<span style="color:var(--light);font-weight:400"> · ${esc(item.sno)}</span>`:esc(item.sno);
+    return`<div class="design-item${selectedSno===item.sno?' active-item':''}" onclick="_pickDesign(this)" data-idx="${idx}">
+      <div class="design-item-left">
+        <div class="design-item-name">${label}</div>${sub}
+      </div>${price}
+    </div>`;
+  }).join('');
+
+  section.classList.add('visible');
+}
+
+function hideDesigns(){
+  document.getElementById('designSection').classList.remove('visible');
+  document.getElementById('designList').innerHTML='';
+  allDesigns=[];
+}
+
+// ── Search ──
+function onSearch(){
+  const q=document.getElementById('searchBar').value.toLowerCase().trim();
+  document.getElementById('searchClear').classList.toggle('visible',q.length>0);
+  const filtered=q?allDesigns.filter(i=>{
+    return (i.sno&&i.sno.toLowerCase().includes(q))||
+           (i.design&&i.design.toLowerCase().includes(q))||
+           (i.sub_collection&&i.sub_collection.toLowerCase().includes(q));
+  }):allDesigns;
+  renderDesigns(filtered);
+}
+
+function clearSearch(){
+  document.getElementById('searchBar').value='';
+  document.getElementById('searchClear').classList.remove('visible');
+  renderDesigns(allDesigns);
+  document.getElementById('searchBar').focus();
+}
+
+// ── Select design & show full product ──
+async function selectDesign(el,sno){
+  selectedSno=sno;
+  document.querySelectorAll('.design-item').forEach(e=>e.classList.remove('active-item'));
+  el.classList.add('active-item');
+  showLoad(true);
+  try{
+    const snap=await db.ref(currentCat+'/by_brand/'+selectedBrand+'/'+selectedCatalog+'/'+sno).once('value');
+    const d=snap.val();
+    if(d)renderCard(d);else hideCard();
+  }catch(e){console.error(e);}
+  showLoad(false);
+  setTimeout(()=>document.getElementById('productCard').scrollIntoView({behavior:'smooth',block:'nearest'}),100);
+}
+
+// ── Render product card ──
+function renderCard(d){
+  const card=document.getElementById('productCard');
+  const unit=d.price_unit||'per_metre';
+  const ul=unit==='per_sqft'?'sq.ft':unit==='per_piece'?'piece':'metre';
+
+  let ph='';
+  if(d.mechanisms){
+    const rows=Object.entries(d.mechanisms).map(([k,p])=>`
+      <div class="mech-row">
+        <span class="mech-name">${esc(k.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase()))}</span>
+        <div><span class="mech-price">₹${fmt(p)}</span><span class="mech-price-unit">/${ul}</span></div>
+      </div>`).join('');
+    ph=`<div class="mech-section">
+      <div class="mech-header"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>Price by mechanism</div>
+      <div class="mech-list">${rows}</div></div>`;
+  } else if(unit==='per_piece'){
+    ph=`<div class="card-prices">
+      <div class="price-main" style="display:block;text-align:center">
+        <div class="price-main-label">MRP (incl. GST)</div>
+        <div class="price-main-value" style="font-size:42px">₹${fmt(d.rrp_incl_gst)}</div>
+        <div class="price-main-unit">per piece</div>
+      </div></div>`;
+  } else {
+    const mrp=d.rrp_incl_gst||d.rrp;
+    ph=`<div class="card-prices">
+      ${mrp?`<div class="price-main">
+        <div><div class="price-main-label">MRP (incl. GST)</div>
+        <div class="price-main-value">₹${fmt(mrp)}</div>
+        <div class="price-main-unit">per ${ul}</div></div>
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(197,90,58,.35)" stroke-width="1.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>`:''}
+      <div class="price-grid">
+        ${d.rrp&&d.rrp!==mrp?`<div class="price-tile"><div class="price-tile-label">RRP</div><div class="price-tile-value">₹${fmt(d.rrp)}</div><div class="price-tile-unit">excl. GST · per ${ul}</div></div>`:'<div></div>'}
+        <div class="price-tile staff-only staff-tile"><div class="price-tile-label">Cut Rate <span class="staff-tag">STAFF</span></div><div class="price-tile-value">₹${fmt(d.cut_rate||0)}</div><div class="price-tile-unit">per ${ul} excl. GST</div></div>${d.cut_rate_incl_gst?`<div class="price-tile staff-only staff-tile"><div class="price-tile-label">Cut Rate incl. GST <span class="staff-tag">STAFF</span></div><div class="price-tile-value">₹${fmt(d.cut_rate_incl_gst)}</div><div class="price-tile-unit">per ${ul} incl. GST</div></div>`:''}
+        <div class="price-tile staff-only staff-tile"><div class="price-tile-label">Roll Rate <span class="staff-tag">STAFF</span></div><div class="price-tile-value">₹${fmt(d.roll_rate||0)}</div><div class="price-tile-unit">per ${ul}</div></div>
+      </div></div>`;
+  }
+
+  const chips=[];
+  if(d.shade)chips.push(`<div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/></svg><span><strong>Shade</strong> ${esc(d.shade)}</span></div>`);
+  // width shown in header
+  if(d.length_in)chips.push(`<div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="8" width="18" height="8" rx="1"/></svg><span><strong>Size</strong> ${d.length_in} × ${d.breadth_in} in</span></div>`);
+  if(d.thickness)chips.push(`<div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6l3 6-3 6M21 6l-3 6 3 6"/></svg><span><strong>Thickness</strong> ${esc(d.thickness)}</span></div>`);
+  if(d.max_width_m)chips.push(`<div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7H3M21 7l-3-3M21 7l-3 3"/></svg><span><strong>Max width</strong> ${d.max_width_m} m</span></div>`);
+  if(d.max_width_ft)chips.push(`<div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7H3M21 7l-3-3M21 7l-3 3"/></svg><span><strong>Max width</strong> ${d.max_width_ft} ft</span></div>`);
+  if(d.composition)chips.push(`<div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3C7 3 3 7 3 12s4 9 9 9 9-4 9-9-4-9-9-9z"/><path d="M3 12h18"/></svg><span><strong>Content</strong> ${esc(d.composition)}</span></div>`);
+  if(d.hsn_code)chips.push(`<div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg><span><strong>HSN</strong> ${esc(d.hsn_code)}</span></div>`);
+  if(d.gst_pct)chips.push(`<div class="chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 5L5 19M9 5a2 2 0 1 0 0-2 2 2 0 0 0 0 2zm6 14a2 2 0 1 0 0-2 2 2 0 0 0 0 2z"/></svg><span><strong>GST</strong> ${Math.round(d.gst_pct)}%</span></div>`);
+
+  card.innerHTML=`
+    <div class="card-top">
+      <button class="card-close" onclick="hideCard()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <div class="card-brand">${esc(d.brand)}</div>
+      <div class="card-design">${esc(d.design||d.sno)}</div>
+      <div class="card-collection">${esc(d.catalog)}${d.sub_collection?' · '+esc(d.sub_collection):''}</div>
+      ${d.width_cm?`<div class="card-width-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 7H3M21 7l-3-3M21 7l-3 3"/></svg> ${d.width_cm} cm wide</div>`:''}
+    </div>
+    ${ph}
+    ${chips.length?`<div class="card-chips"><div class="chips-divider"></div><div class="chips-wrap">${chips.join('')}</div></div>`:''}`;
+
+  applyStaff();
+  card.classList.add('visible');
+}
+
+function _pickDesign(el){var idx=parseInt(el.dataset.idx);selectDesign(el,_filteredDesigns[idx].sno);}
+function hideCard(){
+  selectedSno=null;
+  document.querySelectorAll('.design-item').forEach(el=>el.classList.remove('active-item'));
+  const c=document.getElementById('productCard');c.classList.remove('visible');c.innerHTML='';
+}
+
+// ── Staff PIN ──
+function openPin(){
+  const isStaff=staff;
+  document.getElementById('pinTitle').textContent=isStaff?'Staff Mode Active':'Staff Access';
+  document.getElementById('pinSub').textContent=isStaff?'You are viewing dealer rates':'Enter your PIN to view dealer rates';
+  document.getElementById('pinForm').style.display=isStaff?'none':'block';
+  document.getElementById('pinLogout').style.display=isStaff?'block':'none';
+  document.getElementById('pinInput').value='';
+  document.getElementById('pinError').style.display='none';
+  document.getElementById('pinOverlay').classList.add('open');
+  if(!isStaff)setTimeout(()=>document.getElementById('pinInput').focus(),400);
+}
+function closePinModal(){document.getElementById('pinOverlay').classList.remove('open');}
+function submitPin(){
+  if(document.getElementById('pinInput').value===STAFF_PIN){
+    staff=true;closePinModal();
+    document.getElementById('staffLabel').textContent='Staff ✓';
+    document.getElementById('staffBtn').classList.add('active');
+    applyStaff();
+  }else{
+    document.getElementById('pinError').style.display='block';
+    document.getElementById('pinInput').value='';
+    document.getElementById('pinInput').focus();
+  }
+}
+function doLogout(){
+  staff=false;closePinModal();
+  document.getElementById('staffLabel').textContent='Staff';
+  document.getElementById('staffBtn').classList.remove('active');
+  applyStaff();
+}
+function applyStaff(){document.getElementById('productCard').classList.toggle('staff-mode',staff);}
+
+// ── Utils ──
+function showLoad(v){document.getElementById('loader').classList.toggle('visible',v);}
+function fmt(n){if(!n&&n!==0)return'—';return Number(n).toLocaleString('en-IN');}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+</script>
+</body>
+</html>
